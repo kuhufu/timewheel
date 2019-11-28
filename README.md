@@ -5,7 +5,7 @@
 参考链接中有更高级的实现
 
 ```go
-w := timewheel.NewWheel(time.Second, 5)
+w := timewheel.New(time.Second, 5)
 
 log.Println("hello")
 

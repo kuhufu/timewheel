@@ -6,7 +6,7 @@ import (
 )
 
 func TestTimer_Stop(t *testing.T) {
-	w := NewWheel(time.Second, 10)
+	w := New(time.Second, 10)
 	w.Start()
 
 	done := false
@@ -27,7 +27,7 @@ func TestTimer_Stop(t *testing.T) {
 }
 
 func TestTimer_Reset(t *testing.T) {
-	w := NewWheel(time.Second, 10)
+	w := New(time.Second, 10)
 	w.Start()
 
 	var start = time.Now()
@@ -51,7 +51,7 @@ func TestTimer_Reset(t *testing.T) {
 }
 
 func TestTimer_Reset_failed(t *testing.T) {
-	w := NewWheel(time.Second, 10)
+	w := New(time.Second, 10)
 	w.Start()
 
 	var start = time.Now()

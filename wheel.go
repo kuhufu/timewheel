@@ -66,7 +66,7 @@ type Task struct {
 	done     bool
 }
 
-func NewWheel(interval time.Duration, wheelSize int64) *Wheel {
+func New(interval time.Duration, wheelSize int64) *Wheel {
 	w := &Wheel{
 		interval:    interval,
 		wheelSize:   wheelSize,

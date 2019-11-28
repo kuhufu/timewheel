@@ -25,7 +25,7 @@ func Test(t *testing.T) {
 }
 
 func Test2(t *testing.T) {
-	w := NewWheel(time.Second, 5)
+	w := New(time.Second, 5)
 
 	log.Println("hello")
 
@@ -46,7 +46,7 @@ func Test2(t *testing.T) {
 }
 
 func TestWheel_NewTimer(t *testing.T) {
-	w := NewWheel(time.Second, 5)
+	w := New(time.Second, 5)
 	w.Start()
 
 	log.Println()
@@ -58,7 +58,7 @@ func TestWheel_NewTimer(t *testing.T) {
 }
 
 func TestRaceDetect(t *testing.T) {
-	w := NewWheel(time.Second, 5)
+	w := New(time.Second, 5)
 
 	for i := 0; i < 40000; i++ {
 		i := i
