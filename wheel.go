@@ -1,7 +1,7 @@
 package timewheel
 
 import (
-	"github.com/kuhufu/timewheel/pq"
+	"context"
 	"log"
 	"sync"
 	"time"
@@ -22,16 +22,13 @@ type Wheel struct {
 	wheelSize int64
 
 	//环形队列
-	slots []*pq.MinPQ
+	slots []*MinPQ
 
 	//当前所在时间轮的位置索引
 	curIdx int64
 
 	//当前时间轮是第几轮
 	curCycleNum int64
-
-	//通知关闭时间轮
-	done chan struct{}
 
 	//只运行一次
 	sync.Once
@@ -43,21 +40,14 @@ type Wheel struct {
 
 	mu sync.Mutex
 
+	//是否只在一个协程中执行所有任务
+	onlyOneGoRoutine bool
+
 	//运行开始时间，用来计算优先级
 	createAt time.Time
-}
 
-var comparator = func(a, b interface{}) int {
-	pa := a.(*pq.Item).Key.(int64)
-	pb := b.(*pq.Item).Key.(int64)
-
-	switch {
-	case pa > pb:
-		return 1
-	case pa < pb:
-		return -1
-	}
-	return 0
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 type Task struct {
@@ -67,16 +57,19 @@ type Task struct {
 }
 
 func New(interval time.Duration, wheelSize int64) *Wheel {
+	ctx, cancel := context.WithCancel(context.Background())
 	w := &Wheel{
 		interval:    interval,
 		wheelSize:   wheelSize,
 		curCycleNum: 0,
 		createAt:    time.Now(),
+		ctx:         ctx,
+		cancel:      cancel,
 	}
 
-	w.slots = make([]*pq.MinPQ, wheelSize)
+	w.slots = make([]*MinPQ, wheelSize)
 	for i := int64(0); i < wheelSize; i++ {
-		w.slots[i] = pq.NewMinPQ(8, comparator)
+		w.slots[i] = NewMinPQ(8)
 	}
 	return w
 }
@@ -102,44 +95,54 @@ func (w *Wheel) Wait() {
 }
 
 //Close 关闭时间轮，返回值表示是否关闭成功
-func (w *Wheel) Close() bool {
+func (w *Wheel) Close() error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
 	if !w.closed {
 		w.closed = true
-		return true
+		w.cancel()
+		return nil
 	}
-	return false
+	return nil
 }
 
 //CloseAndWait 关闭时间轮，并等待时间轮完成所有定时任务，返回值表示是否关闭成功
-func (w *Wheel) CloseAndWait() bool {
-	success := w.Close()
+func (w *Wheel) CloseAndWait() error {
+	err := w.Close()
 	w.Wait()
-	return success
+	return err
 }
 
 func (w *Wheel) start() {
 	for {
 		select {
-		case <-w.done:
+		case <-w.ctx.Done():
 			goto done
 		case <-w.ticker.C:
 			idx := w.curIdx % w.wheelSize
-
+			slot := w.slots[idx]
 			for {
-				tt, ok := w.slots[idx].Min()
-				var t *Timer
-				if ok {
-					t = tt.Val.(*Timer)
-					if t.task.cycleNum > w.curCycleNum {
-						break
-					}
-					w.slots[idx].DelMin() //！！！从优先级队列中删除
-					go w.doTask(t)
-				} else {
+				item, ok := slot.PullMinIf(func(item *Item) bool {
+					return item.Val.task.cycleNum <= w.curCycleNum
+				})
+
+				//当前槽位没有当前cycle的任务
+				if !ok {
 					break
+				}
+
+				timer := item.Val
+
+				//检测到小于当前周期的任务
+				if timer.task.cycleNum < w.curCycleNum {
+					continue
+				}
+
+				if w.onlyOneGoRoutine {
+					w.doTask(timer)
+				} else {
+					go w.doTask(timer)
 				}
 			}
 
@@ -179,7 +182,7 @@ func (w *Wheel) AfterFunc(d time.Duration, f func()) *Timer {
 		},
 	}
 
-	w.getSlot(d).Insert(&pq.Item{
+	w.getSlot(d).Insert(&Item{
 		Key: w.priority(d),
 		Val: t,
 	})
@@ -191,7 +194,7 @@ func (w *Wheel) priority(d time.Duration) int64 {
 	return time.Now().UnixNano() + int64(d)
 }
 
-func (w *Wheel) getSlot(d time.Duration) *pq.MinPQ {
+func (w *Wheel) getSlot(d time.Duration) *MinPQ {
 	return w.slots[w.slotIdx(d)]
 }
 

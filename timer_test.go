@@ -1,6 +1,7 @@
 package timewheel
 
 import (
+	"fmt"
 	"testing"
 	"time"
 )
@@ -12,10 +13,12 @@ func TestTimer_Stop(t *testing.T) {
 	done := false
 
 	timer := w.AfterFunc(time.Second*2, func() {
+		t.Log("done")
 		done = true
 	})
 
 	w.AfterFunc(time.Second, func() {
+		t.Log("stop")
 		timer.Stop()
 	})
 
@@ -57,20 +60,23 @@ func TestTimer_Reset_failed(t *testing.T) {
 	var start = time.Now()
 	var end time.Time
 
-	timer := w.AfterFunc(time.Second*1, func() {
+	timer := w.AfterFunc(time.Second*0, func() {
 		end = time.Now()
+		fmt.Println("end")
 	})
 
-	w.AfterFunc(time.Second*2, func() {
-		ok := timer.Reset(time.Second * 2)
+	w.AfterFunc(time.Second*1, func() {
+		ok := timer.Reset(time.Second * 3)
 
 		t.Log("reset success ? :", ok)
-		if ok {
+		if !ok {
 			t.Error("test reset failed failed")
 		}
 	})
 
 	time.Sleep(time.Second * 5)
+
+	fmt.Println(start, end)
 
 	if end.Sub(start) < time.Second*2 {
 		t.Error("reset failed")

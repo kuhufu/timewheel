@@ -1,12 +1,12 @@
-package pq
+package timewheel
 
 import (
 	"sync"
 )
 
 type Item struct {
-	Key interface{}
-	Val interface{}
+	Key int64
+	Val *Timer
 }
 
 //小堆
@@ -23,14 +23,11 @@ type MinPQ struct {
 	sync.Mutex
 }
 
-func NewMinPQ(cap int, c Comparator) *MinPQ {
-	if c == nil {
-		panic("Comparator cannot be nil")
-	}
+func NewMinPQ(cap int) *MinPQ {
 	q := &MinPQ{
 		pq:         make([]*Item, cap+1),
 		n:          0,
-		comparator: c,
+		comparator: comparator,
 	}
 
 	return q
@@ -48,10 +45,27 @@ func (m *MinPQ) Min() (item *Item, ok bool) {
 	m.Lock()
 	defer m.Unlock()
 
+	return m.min()
+}
+
+func (m *MinPQ) min() (item *Item, ok bool) {
 	if m.IsEmpty() {
 		return nil, false
 	}
 	return m.pq[1], true
+}
+
+func (m *MinPQ) PullMinIf(match func(item *Item) bool) (item *Item, ok bool) {
+	m.Lock()
+	defer m.Unlock()
+
+	item, ok = m.min()
+
+	if ok && match(item) {
+		return m.delMin()
+	}
+
+	return nil, false
 }
 
 func (m *MinPQ) resize(cap int) {
@@ -78,6 +92,10 @@ func (m *MinPQ) DelMin() (item *Item, ok bool) {
 	m.Lock()
 	defer m.Unlock()
 
+	return m.delMin()
+}
+
+func (m *MinPQ) delMin() (item *Item, ok bool) {
 	if m.IsEmpty() {
 		return nil, false
 	}

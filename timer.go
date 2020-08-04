@@ -24,7 +24,11 @@ func (t *Timer) doTask() {
 	t.mu.Unlock()
 
 	t.task.f()
-	t.C <- time.Now()
+
+	select {
+	case t.C <- time.Now(): //非阻塞发送时间
+	default:
+	}
 }
 
 func (t *Timer) Stop() bool {
@@ -44,6 +48,7 @@ func (t *Timer) Reset(d time.Duration) bool {
 	if t.task.done {
 		return false
 	}
+
 	t.task.done = true //旧timer将由wheel惰性删除
 	t.ownerWheel.AfterFunc(d, t.task.f)
 	return true

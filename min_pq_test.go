@@ -1,53 +1,39 @@
-package pq
+package timewheel
 
 import (
 	"fmt"
 	"testing"
 )
 
-var comparator = func(a, b interface{}) int {
-	pa := a.(*Item).Key.(int)
-	pb := b.(*Item).Key.(int)
-
-	switch {
-	case pa < pb:
-		return 1
-	case pa > pb:
-		return -1
-	}
-	return 0
-}
-
 func TestMinPQ_Min(t *testing.T) {
-	pq := NewMinPQ(16, comparator)
+	pq := NewMinPQ(16)
 
 	pq.Insert(&Item{
 		Key: 10,
-		Val: 10,
+		Val: nil,
 	})
 
 	pq.Insert(&Item{
 		Key: 9,
-		Val: 9,
+		Val: nil,
 	})
 
 	pq.Insert(&Item{
 		Key: 10,
-		Val: 10,
+		Val: nil,
 	})
 
 	pq.Insert(&Item{
 		Key: 11,
-		Val: 11,
+		Val: nil,
 	})
 
 	pq.Insert(&Item{
 		Key: 1,
-		Val: 1,
+		Val: nil,
 	})
 
 	for !pq.IsEmpty() {
 		fmt.Println(pq.DelMin())
 	}
 }
-
